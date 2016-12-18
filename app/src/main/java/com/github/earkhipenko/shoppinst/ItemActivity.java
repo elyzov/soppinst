@@ -16,6 +16,8 @@ public class ItemActivity extends AppCompatActivity {
     private EditText inputItemQuantity;
     private Realm realm;
 
+    private boolean editMode = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -29,6 +31,12 @@ public class ItemActivity extends AppCompatActivity {
         inputItemQuantity = (EditText)findViewById(R.id.input_item_quantity);
 
         realm = Realm.getDefaultInstance();
+
+        if (getIntent().hasExtra("ITEM_NAME")) {
+            inputItemName.setText(getIntent().getStringExtra("ITEM_NAME"));
+            inputItemQuantity.setText(getIntent().getStringExtra("ITEM_QUANTITY"));
+            editMode = true;
+        }
     }
 
     @Override
@@ -39,7 +47,7 @@ public class ItemActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.save_action) {
+        if (item.getItemId() == R.id.save_action && !editMode) {
             realm.beginTransaction();
             ShoppingItem shoppingItem = realm.createObject(ShoppingItem.class);
             shoppingItem.setName(inputItemName.getText().toString());
@@ -52,6 +60,19 @@ public class ItemActivity extends AppCompatActivity {
             setResult(RESULT_OK);
             finish();
         }
+
+        if (item.getItemId() == R.id.save_action && editMode) {
+            realm.beginTransaction();
+            ShoppingItem shoppingItem = realm.where(ShoppingItem.class).equalTo("id", getIntent().getStringExtra("ITEM_ID")).findFirst();
+            shoppingItem.setName(inputItemName.getText().toString());
+            shoppingItem.setQuantity(inputItemQuantity.getText().toString());
+            shoppingItem.setTimestamp(System.currentTimeMillis());
+            realm.commitTransaction();
+
+            setResult(RESULT_OK);
+            finish();
+        }
+
         return super.onOptionsItemSelected(item);
     }
 }
