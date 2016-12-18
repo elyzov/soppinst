@@ -1,6 +1,7 @@
 package com.github.earkhipenko.shoppinst;
 
 import android.content.Intent;
+import android.graphics.Paint;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -14,9 +15,21 @@ import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import io.realm.Realm;
+import io.realm.RealmConfiguration;
+import io.realm.RealmResults;
+
 public class MainActivity extends AppCompatActivity {
 
     private RecyclerView shoppingItems;
+
+    private Realm realm;
+
+    private List<ShoppingItem> dataSet;
+
     private RecyclerView.Adapter shoppingItemsAdapter = new RecyclerView.Adapter() {
         private final int ACTIVE_VIEW=1;
         private final int INACTIVE_VIEW=2;
@@ -47,12 +60,31 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
-
+            ShoppingItem currentItem = dataSet.get(position);
+            if (currentItem.getTimestamp() == -1) return;
+            if (currentItem.isCompleted()) {
+                InactiveItemViewHolder h = (InactiveItemViewHolder)holder;
+                h.itemName.setText(currentItem.getName());
+                h.itemName.setPaintFlags(h.itemName.getPaintFlags()| Paint.STRIKE_THRU_TEXT_FLAG);
+            } else {
+                ActiveItemViewHolder h = (ActiveItemViewHolder)holder;
+                h.itemName.setText(currentItem.getName());
+                h.itemQuantity.setText(currentItem.getQuantity());
+                h.itemStatus.setChecked(false);
+            }
         }
 
         @Override
         public int getItemCount() {
-            return 0;
+            return dataSet.size();
+        }
+
+        @Override
+        public int getItemViewType(int position) {
+            ShoppingItem currentItem = dataSet.get(position);
+            if (currentItem.getTimestamp() == -1) return SUBHEADER_VIEW;
+            if (currentItem.isCompleted()) return INACTIVE_VIEW;
+            return ACTIVE_VIEW;
         }
     };
 
@@ -63,18 +95,49 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+        RealmConfiguration configuration =
+                new RealmConfiguration.Builder(this).build();
+        Realm.setDefaultConfiguration(configuration);
+        realm = Realm.getDefaultInstance();
+
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Intent i = new Intent(MainActivity.this, ItemActivity.class);
                 i.putExtra("TITLE", "Add item");
-                startActivity(i);
+                startActivityForResult(i, 1);
             }
         });
 
         shoppingItems = (RecyclerView)findViewById(R.id.shopping_items);
         shoppingItems.setLayoutManager(new LinearLayoutManager(this));
+        initializeDataSet();
+        shoppingItems.setAdapter(shoppingItemsAdapter);
     }
 
+    private void initializeDataSet() {
+        dataSet = new ArrayList<>();
+        RealmResults<ShoppingItem> activeItemResults
+                = realm.where(ShoppingItem.class).equalTo("completed", false)
+                .findAllSorted("timestamp", false);
+        RealmResults<ShoppingItem> inactiveItemResults
+                = realm.where(ShoppingItem.class).equalTo("completed", true)
+                .findAllSorted("timestamp", false);
+
+        ShoppingItem subheader = new ShoppingItem();
+        subheader.setTimestamp(-1);
+
+        for (ShoppingItem item:activeItemResults) dataSet.add(item);
+        if (inactiveItemResults.size() > 0 ) dataSet.add(subheader);
+        for (ShoppingItem item:inactiveItemResults) dataSet.add(item);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (resultCode == RESULT_OK) {
+            initializeDataSet();
+            shoppingItemsAdapter.notifyDataSetChanged();
+        }
+    }
 }
