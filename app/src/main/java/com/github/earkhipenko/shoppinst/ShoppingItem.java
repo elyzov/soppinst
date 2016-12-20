@@ -12,6 +12,7 @@ public class ShoppingItem extends RealmObject {
     private String name;
     private String quantity;
     private boolean completed;
+    private String list;
 
     @PrimaryKey
     private String id;
@@ -57,4 +58,13 @@ public class ShoppingItem extends RealmObject {
     public void setTimestamp(long timestamp) {
         this.timestamp = timestamp;
     }
+
+    public String getList() {
+        return list;
+    }
+
+    public void setList(String list) {
+        this.list = list;
+    }
+
 }
