@@ -49,11 +49,13 @@ public class ItemActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.save_action && !editMode) {
             realm.beginTransaction();
-            ShoppingItem shoppingItem = realm.createObject(ShoppingItem.class);
+            ShoppingItem shoppingItem = realm.createObject(
+                    ShoppingItem.class,
+                    UUID.randomUUID().toString()
+            );
             shoppingItem.setName(inputItemName.getText().toString());
             shoppingItem.setQuantity(inputItemQuantity.getText().toString());
             shoppingItem.setCompleted(false);
-            shoppingItem.setId(UUID.randomUUID().toString());
             shoppingItem.setTimestamp(System.currentTimeMillis());
             realm.commitTransaction();
 
@@ -63,7 +65,10 @@ public class ItemActivity extends AppCompatActivity {
 
         if (item.getItemId() == R.id.save_action && editMode) {
             realm.beginTransaction();
-            ShoppingItem shoppingItem = realm.where(ShoppingItem.class).equalTo("id", getIntent().getStringExtra("ITEM_ID")).findFirst();
+            ShoppingItem shoppingItem = realm
+                    .where(ShoppingItem.class)
+                    .equalTo("id", getIntent().getStringExtra("ITEM_ID"))
+                    .findFirst();
             shoppingItem.setName(inputItemName.getText().toString());
             shoppingItem.setQuantity(inputItemQuantity.getText().toString());
             shoppingItem.setTimestamp(System.currentTimeMillis());
