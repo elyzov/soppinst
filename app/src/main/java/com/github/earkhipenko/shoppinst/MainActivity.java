@@ -9,16 +9,19 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import io.realm.Realm;
 import io.realm.RealmConfiguration;
@@ -28,11 +31,18 @@ import io.realm.Sort;
 public class MainActivity extends AppCompatActivity {
 
     private RecyclerView shoppingItems;
+    private RecyclerView shoppingLists;
 
     private Realm realm;
 
     private List<ShoppingItem> dataSet;
+    private List<ShoppingList> listSet;
     private String activeList;
+    private ImageView actionListSave;
+    private ImageView actionListAdd;
+
+
+    private EditText inputListName;
 
     private RecyclerView.Adapter shoppingItemsAdapter = new RecyclerView.Adapter() {
         private final int ACTIVE_VIEW=1;
@@ -155,6 +165,56 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    private RecyclerView.Adapter shoppingListsAdapter = new RecyclerView.Adapter() {
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            View v = getLayoutInflater().inflate(R.layout.list_item, parent, false);
+            return new ListViewHolder(v,
+                    (TextView)v.findViewById(R.id.list_name),
+                    (ImageView)v.findViewById(R.id.list_action),
+                    (ImageView)v.findViewById(R.id.list_delete)
+            );
+        }
+
+        @Override
+        public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+            final ShoppingList currentList = listSet.get(position);
+            ListViewHolder h = (ListViewHolder)holder;
+            h.listName.setText(currentList.getName());
+            h.listAction.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    actionListSave.setTag(currentList);
+                    inputListName.setText(currentList.getName());
+                    actionListSave.setVisibility(View.VISIBLE);
+                    actionListAdd.setVisibility(View.GONE);
+                }
+            });
+            h.listDelete.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    realm.beginTransaction();
+                    RealmResults<ShoppingItem> inactiveItemResults
+                            = realm.where(ShoppingItem.class).equalTo("list", currentList.getName())
+                            .findAll();
+                    inactiveItemResults.deleteAllFromRealm();
+                    currentList.deleteFromRealm();
+                    realm.commitTransaction();
+                    initializeDataSet();
+                    shoppingItemsAdapter.notifyDataSetChanged();
+                    shoppingListsAdapter.notifyDataSetChanged();
+                }
+            });
+
+
+        }
+
+        @Override
+        public int getItemCount() {
+            return listSet.size();
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -181,10 +241,59 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        inputListName = (EditText) findViewById(R.id.input_list_name);
+        actionListAdd = (ImageView) findViewById(R.id.list_add);
+        actionListSave = (ImageView) findViewById(R.id.list_save);
+        actionListAdd.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                addNewList();
+            }
+        });
+        inputListName.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                addNewList();
+                return true;
+            }
+        });
+        actionListSave.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ShoppingList currentList = (ShoppingList) actionListSave.getTag();
+                realm.beginTransaction();
+                currentList.setName(inputListName.getText().toString());
+                realm.commitTransaction();
+                inputListName.setText("");
+                actionListSave.setVisibility(View.GONE);
+                actionListAdd.setVisibility(View.VISIBLE);
+                actionListSave.setTag(null);
+                shoppingListsAdapter.notifyDataSetChanged();
+            }
+        });
+
         shoppingItems = (RecyclerView)findViewById(R.id.shopping_items);
         shoppingItems.setLayoutManager(new LinearLayoutManager(this));
+
+        shoppingLists = (RecyclerView)findViewById(R.id.shopping_lists);
+        shoppingLists.setLayoutManager(new LinearLayoutManager(this));
+
         initializeDataSet();
         shoppingItems.setAdapter(shoppingItemsAdapter);
+        shoppingLists.setAdapter(shoppingListsAdapter);
+    }
+
+    private void addNewList() {
+        realm.beginTransaction();
+        ShoppingList shoppingItem = realm.createObject(
+                ShoppingList.class,
+                UUID.randomUUID().toString()
+        );
+        shoppingItem.setName(inputListName.getText().toString());
+        realm.commitTransaction();
+        inputListName.setText("");
+        initializeDataSet();
+        shoppingListsAdapter.notifyDataSetChanged();
     }
 
     private void initializeDataSet() {
@@ -202,6 +311,11 @@ public class MainActivity extends AppCompatActivity {
         for (ShoppingItem item:activeItemResults) dataSet.add(item);
         if (inactiveItemResults.size() > 0 ) dataSet.add(subheader);
         for (ShoppingItem item:inactiveItemResults) dataSet.add(item);
+
+        listSet = new ArrayList<>();
+        RealmResults<ShoppingList> listResults
+                = realm.where(ShoppingList.class).findAll();
+        for (ShoppingList list:listResults) listSet.add(list);
     }
 
     @Override
