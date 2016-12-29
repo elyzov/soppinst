@@ -37,8 +37,8 @@ public class MainActivity extends AppCompatActivity {
 
     private Realm realm;
 
-    private List<ShoppingItem> dataSet;
-    private List<ShoppingList> listSet;
+    private List<ShoppingItem> dataSet; // Набор данных активного списка покупок
+    private List<ShoppingList> listSet; // Набор данных списка магазинов
     private String activeList = "";
     private ImageView actionListSave;
     private ImageView actionListAdd;
@@ -95,7 +95,7 @@ public class MainActivity extends AppCompatActivity {
                     public void onClick(View v) {
                         realm.beginTransaction();
                         RealmResults<ShoppingItem> inactiveItemResults
-                                = realm.where(ShoppingItem.class).equalTo("completed", true)
+                                = realm.where(ShoppingItem.class).equalTo("completed", true).equalTo("list", activeList)
                                 .findAll();
                         inactiveItemResults.deleteAllFromRealm();
                         realm.commitTransaction();
@@ -259,12 +259,26 @@ public class MainActivity extends AppCompatActivity {
     };
 
     @Override
+    public void onSaveInstanceState(Bundle savedInstanceState) {
+        super.onSaveInstanceState(savedInstanceState);
+        savedInstanceState.putString("activeList", activeList);
+    }
+
+    @Override
+    public void onRestoreInstanceState(Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+        activeList = savedInstanceState.getString("activeList");
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-
+        if (savedInstanceState != null) {
+            activeList = savedInstanceState.getString("activeList");
+        }
         Realm.init(this);
         RealmConfiguration configuration =
                 new RealmConfiguration
