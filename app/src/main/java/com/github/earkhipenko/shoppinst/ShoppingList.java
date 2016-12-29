@@ -13,7 +13,6 @@ public class ShoppingList extends RealmObject {
 
     @PrimaryKey
     private String id;
-    private String desc;
 
     public String getName() {
         return name;
@@ -31,11 +30,4 @@ public class ShoppingList extends RealmObject {
         this.id = id;
     }
 
-    public String getDesc() {
-        return desc;
-    }
-
-    public void setDesc(String desc) {
-        this.desc = desc;
-    }
 }
