@@ -4,7 +4,7 @@ import android.content.Intent;
 import android.graphics.Paint;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
+import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -17,10 +17,12 @@ import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import io.realm.Realm;
@@ -37,10 +39,18 @@ public class MainActivity extends AppCompatActivity {
 
     private List<ShoppingItem> dataSet;
     private List<ShoppingList> listSet;
-    private String activeList;
+    private String activeList = "";
     private ImageView actionListSave;
     private ImageView actionListAdd;
+    private ImageView listSettings;
+    private ImageView listSettingsActive;
+    private RelativeLayout listEditor;
+    private DrawerLayout drawer;
 
+    private void setActiveList(String listName) {
+        activeList = listName;
+        setTitle(listName.isEmpty() ? "Shoppinst" : "Shoppinst: " + listName);
+    }
 
     private EditText inputListName;
 
@@ -166,10 +176,22 @@ public class MainActivity extends AppCompatActivity {
     };
 
     private RecyclerView.Adapter shoppingListsAdapter = new RecyclerView.Adapter() {
+
+        public boolean editMode = false;
+
+        private final int ACTIVE_VIEW = 1;
+        private final int INACTIVE_VIEW = 2;
+
         @Override
         public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            View v = getLayoutInflater().inflate(R.layout.list_item, parent, false);
+            View v;
+            if (viewType == ACTIVE_VIEW) {
+                v = getLayoutInflater().inflate(R.layout.active_list_item, parent, false);
+            } else {
+                v = getLayoutInflater().inflate(R.layout.list_item, parent, false);
+            }
             return new ListViewHolder(v,
+                    (RelativeLayout)v.findViewById(R.id.list_item),
                     (TextView)v.findViewById(R.id.list_name),
                     (ImageView)v.findViewById(R.id.list_action),
                     (ImageView)v.findViewById(R.id.list_delete)
@@ -180,7 +202,18 @@ public class MainActivity extends AppCompatActivity {
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
             final ShoppingList currentList = listSet.get(position);
             ListViewHolder h = (ListViewHolder)holder;
-            h.listName.setText(currentList.getName());
+            boolean isDefault = Objects.equals(currentList.getName(), "");
+            h.listName.setText(isDefault ? "default" : currentList.getName());
+            h.listItem.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    MainActivity.this.setActiveList(currentList.getName());
+                    initializeDataSet();
+                    shoppingItemsAdapter.notifyDataSetChanged();
+                    notifyDataSetChanged();
+                    drawer.closeDrawers();
+                }
+            });
             h.listAction.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -200,18 +233,28 @@ public class MainActivity extends AppCompatActivity {
                     inactiveItemResults.deleteAllFromRealm();
                     currentList.deleteFromRealm();
                     realm.commitTransaction();
+                    activeList = "";
                     initializeDataSet();
                     shoppingItemsAdapter.notifyDataSetChanged();
                     shoppingListsAdapter.notifyDataSetChanged();
                 }
             });
 
-
+            int visibility = !isDefault && editMode ? View.VISIBLE : View.GONE;
+            h.listAction.setVisibility(visibility);
+            h.listDelete.setVisibility(visibility);
         }
 
         @Override
         public int getItemCount() {
             return listSet.size();
+        }
+
+        @Override
+        public int getItemViewType(int position) {
+            ShoppingList currentItem = listSet.get(position);
+            if (Objects.equals(currentItem.getName(), activeList)) return ACTIVE_VIEW;
+            return INACTIVE_VIEW;
         }
     };
 
@@ -237,7 +280,46 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 Intent i = new Intent(MainActivity.this, ItemActivity.class);
                 i.putExtra("TITLE", "Add item");
+                i.putExtra("LIST", activeList);
                 startActivityForResult(i, 1);
+            }
+        });
+
+        listSettings = (ImageView) findViewById(R.id.lists_settings);
+        listSettingsActive = (ImageView) findViewById(R.id.lists_settings_active);
+        listEditor = (RelativeLayout) findViewById(R.id.list_editor);
+        drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+
+        listSettings.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                listSettings.setVisibility(View.GONE);
+                listSettingsActive.setVisibility(View.VISIBLE);
+                listEditor.setVisibility(View.VISIBLE);
+                try {
+                    shoppingListsAdapter.getClass().getField("editMode").setBoolean(shoppingListsAdapter, true);
+                } catch (NoSuchFieldException e) {
+                    e.printStackTrace();
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                }
+                shoppingListsAdapter.notifyDataSetChanged();
+            }
+        });
+        listSettingsActive.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                listSettingsActive.setVisibility(View.GONE);
+                listSettings.setVisibility(View.VISIBLE);
+                listEditor.setVisibility(View.GONE);
+                try {
+                    shoppingListsAdapter.getClass().getField("editMode").setBoolean(shoppingListsAdapter, false);
+                } catch (NoSuchFieldException e) {
+                    e.printStackTrace();
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                }
+                shoppingListsAdapter.notifyDataSetChanged();
             }
         });
 
@@ -261,8 +343,17 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 ShoppingList currentList = (ShoppingList) actionListSave.getTag();
+                String oldListName = currentList.getName();
+                if (Objects.equals(activeList, currentList.getName())) {
+                    setActiveList(inputListName.getText().toString());
+                }
                 realm.beginTransaction();
                 currentList.setName(inputListName.getText().toString());
+                RealmResults<ShoppingItem> listItemResults
+                        = realm.where(ShoppingItem.class).equalTo("list", oldListName).findAll();
+                for (ShoppingItem item:listItemResults) {
+                    item.setList(currentList.getName());
+                }
                 realm.commitTransaction();
                 inputListName.setText("");
                 actionListSave.setVisibility(View.GONE);
@@ -284,6 +375,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void addNewList() {
+        if (inputListName.getText().toString().isEmpty()) return;
         realm.beginTransaction();
         ShoppingList shoppingItem = realm.createObject(
                 ShoppingList.class,
@@ -299,10 +391,10 @@ public class MainActivity extends AppCompatActivity {
     private void initializeDataSet() {
         dataSet = new ArrayList<>();
         RealmResults<ShoppingItem> activeItemResults
-                = realm.where(ShoppingItem.class).equalTo("completed", false)
+                = realm.where(ShoppingItem.class).equalTo("completed", false).equalTo("list", activeList)
                 .findAllSorted("timestamp", Sort.DESCENDING);
         RealmResults<ShoppingItem> inactiveItemResults
-                = realm.where(ShoppingItem.class).equalTo("completed", true)
+                = realm.where(ShoppingItem.class).equalTo("completed", true).equalTo("list", activeList)
                 .findAllSorted("timestamp", Sort.DESCENDING);
 
         ShoppingItem subheader = new ShoppingItem();
@@ -311,6 +403,19 @@ public class MainActivity extends AppCompatActivity {
         for (ShoppingItem item:activeItemResults) dataSet.add(item);
         if (inactiveItemResults.size() > 0 ) dataSet.add(subheader);
         for (ShoppingItem item:inactiveItemResults) dataSet.add(item);
+
+
+        //realm.beginTransaction();
+        //realm.where(ShoppingList.class).equalTo("name", "").findAll().deleteAllFromRealm();
+        if (realm.where(ShoppingList.class).equalTo("name", "").findAll().isEmpty()) {
+            realm.beginTransaction();
+            ShoppingList shoppingItem = realm.createObject(
+                    ShoppingList.class,
+                    UUID.randomUUID().toString()
+            );
+            shoppingItem.setName("");
+            realm.commitTransaction();
+        }
 
         listSet = new ArrayList<>();
         RealmResults<ShoppingList> listResults

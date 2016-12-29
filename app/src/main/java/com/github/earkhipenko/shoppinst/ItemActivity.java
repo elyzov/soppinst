@@ -17,7 +17,7 @@ public class ItemActivity extends AppCompatActivity {
     private Realm realm;
 
     private boolean editMode = false;
-
+    private String list;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -25,6 +25,10 @@ public class ItemActivity extends AppCompatActivity {
 
         if (getIntent().hasExtra("TITLE")) {
             setTitle(getIntent().getStringExtra("TITLE"));
+        }
+
+        if (getIntent().hasExtra("LIST")) {
+            list = getIntent().getStringExtra("LIST");
         }
 
         inputItemName = (EditText)findViewById(R.id.input_item_name);
@@ -57,6 +61,7 @@ public class ItemActivity extends AppCompatActivity {
             shoppingItem.setQuantity(inputItemQuantity.getText().toString());
             shoppingItem.setCompleted(false);
             shoppingItem.setTimestamp(System.currentTimeMillis());
+            shoppingItem.setList(list);
             realm.commitTransaction();
 
             setResult(RESULT_OK);

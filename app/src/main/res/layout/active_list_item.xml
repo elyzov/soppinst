@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:clickable="true"
     android:focusable="true"
-    android:background="?attr/selectableItemBackground"
+    android:background="?attr/colorControlHighlight"
     android:id="@+id/list_item"
     android:layout_height="56dp"
     android:paddingLeft="16dp"
@@ -16,8 +16,7 @@
         android:layout_height="wrap_content"
         android:layout_centerVertical="true"
         android:layout_alignParentStart="true"
-        app:srcCompat="@drawable/ic_brightness_1_black_24dp"
-        android:alpha="0.26"
+        app:srcCompat="@drawable/ic_brightness_1_primary_24dp"
         android:id="@+id/item_circle" />
 
     <LinearLayout
@@ -38,18 +37,16 @@
     <ImageView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:srcCompat="@drawable/ic_create_black_24dp"
+        app:srcCompat="@drawable/ic_create_primary_24dp"
         android:id="@+id/list_action"
-        android:alpha="0.26"
-        android:visibility="gone"
+        android:alpha="0.76"
         android:layout_marginRight="12dp"/>
     <ImageView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:srcCompat="@drawable/ic_clear_black_24dp"
+        app:srcCompat="@drawable/ic_clear_primary_24dp"
         android:id="@+id/list_delete"
-        android:visibility="gone"
-        android:alpha="0.26" />
+        android:alpha="0.76" />
     </LinearLayout>
 
     <TextView
@@ -59,7 +56,8 @@
         android:id="@+id/list_name"
         android:textSize="@dimen/text_size_medium"
         android:imeOptions="actionDone"
-        android:textColor="@android:color/black"
+        android:textColor="@color/colorPrimary"
+        android:textStyle="bold"
         android:layout_alignWithParentIfMissing="false"
         android:layout_centerInParent="false"
         android:keepScreenOn="false"
